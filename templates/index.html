@@ -1,0 +1,24 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Sensor Data</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            var socket = io();
+            // Listen for the 'sensor_update' event
+            socket.on('sensor_update', function(data) {
+                document.getElementById('temperature').innerText = data.temperature || '--';
+                document.getElementById('humidity').innerText = data.humidity || '--';
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>Real-Time Sensor Data</h1>
+    <p>Temperature: <span id="temperature">--</span></p>
+    <p>Humidity: <span id="humidity">--</span></p>
+</body>
+</html>
