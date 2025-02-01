@@ -3,3 +3,4 @@ __pycache__
 logs
 .lgd-nfy0
 btntest.py
+sql_db.db
