@@ -98,6 +98,16 @@ class Controller:
 
     def shutdown(self):
         self.shutdown_event.set()
+        
+    def cleanup(self):
+        self.shift_reg.clear_input()
+        self.shift_reg.update_output()
+        
+        self.on_off_button.close()
+        self.cycle_button.close()
+        self.on_led.close()
+        self.off_led.close()
+        
 
     def sensor_thread(self):
         # Initializes the SQL data logger
@@ -139,8 +149,6 @@ class Controller:
                             self.shift_reg.update_output()
             
             sleep(LOG_FREQUENCY)
-        self.shift_reg.clear_input()
-        self.shift_reg.update_output()
 
 
 controller = Controller()
