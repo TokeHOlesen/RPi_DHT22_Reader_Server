@@ -49,7 +49,7 @@ class Controller:
         self.on_off_button.when_held = self.quit
         self.cycle_button.when_pressed = self.cycle_button_press_event
 
-        # 0 for no temperature, 1 for humidity, 2 for no leds
+        # 0 for temperature, 1 for humidity, 2 for no leds
         self.display_mode = 0
 
         # When True, sensors readings will be taken and data will be logged
