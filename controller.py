@@ -2,8 +2,7 @@ import adafruit_dht
 import board
 from time import sleep
 from gpiozero import Button, LED
-from threading import Thread, Lock
-from sys import exit
+from threading import Thread, Event, Lock
 
 from constants import *
 from data_logger_class import DataLogger
@@ -38,15 +37,15 @@ class Controller:
 
         # Initializes the On/Off button and the On/Off LEDs
         self.on_off_button = Button(ON_OFF_BTN_PIN, bounce_time=0.15, hold_time=3)
-        self.off_led = LED(OFF_LED_PIN)
-        self.on_led = LED(ON_LED_PIN)
-
         # Initializes the button used to cycle through display modes
         self.cycle_button = Button(CYCLE_BUTTON_PIN, bounce_time=0.15)
         
-        # Assings functions to be called when the buttons are pressed
+        self.off_led = LED(OFF_LED_PIN)
+        self.on_led = LED(ON_LED_PIN)
+        
+        # Assigns functions to be called when the buttons are pressed
         self.on_off_button.when_pressed = self.on_off_button_press_event
-        self.on_off_button.when_held = self.quit
+        self.on_off_button.when_held = self.shutdown
         self.cycle_button.when_pressed = self.cycle_button_press_event
 
         # 0 for temperature, 1 for humidity, 2 for no leds
@@ -56,7 +55,7 @@ class Controller:
         self.read_sensor = False
         
         # When True, the program will end
-        self.quit = False
+        self.shutdown_event = Event()
 
         self.update_on_off_leds()
     
@@ -91,53 +90,67 @@ class Controller:
         """Loads a list of 8 bits into the shift register."""
         for bit in bits:
             self.shift_reg.load_bit(bit)
+        self.shift_reg.update_output()
     
     def get_sensor_data(self):
         with self.lock:
             return self.data.copy()
 
-    def quit(self):
-        self.quit = True
+    def shutdown(self):
+        self.shutdown_event.set()
 
-    def run(self):
+    def sensor_thread(self):
         # Initializes the SQL data logger
         self.data_logger = DataLogger(SQL_FILE_PATH)
-        while not self.quit:
+        while not self.shutdown_event.is_set():
             if self.read_sensor:
                 try:
                     temp = self.dht22.temperature
                     hum = self.dht22.humidity
+                    
                     if temp is not None and hum is not None:
                         print(f"Temp: {temp}, humidity: {hum}")
-                        
                         self.data_logger.log_data(temp, hum)
                             
                         with self.lock:
                             self.data["temperature"] = temp
                             self.data["humidity"] = hum
-                        
-                        match self.display_mode:
-                            case 0:
-                                self.update_bit_leds(self.get_bits(int(temp)))
-                            case 1:
-                                self.update_bit_leds(self.get_bits(int(hum)))
-                            case 2:
-                                self.shift_reg.clear_input()
-                            
-                        self.shift_reg.update_output()
-                        sleep(LOG_FREQUENCY)
+                                 
                 except Exception as e:
                     print(str(e))
+            sleep(LOG_FREQUENCY)
         self.data_logger.close()
+    
+    def circuit_thread(self):
+        while not self.shutdown_event.is_set():
+            with self.lock:
+                temp = self.data["temperature"]
+                hum = self.data["humidity"]
+            
+            if self.read_sensor:
+                if temp is not None and hum is not None:
+                    match self.display_mode:
+                        case 0:
+                            self.update_bit_leds(self.get_bits(int(temp)))
+                        case 1:
+                            self.update_bit_leds(self.get_bits(int(hum)))
+                        case 2:
+                            self.shift_reg.clear_input()
+                            self.shift_reg.update_output()
+            
+            sleep(LOG_FREQUENCY)
         self.shift_reg.clear_input()
         self.shift_reg.update_output()
-        exit()
-                
+
 
 controller = Controller()
-thread = Thread(target=controller.run, daemon=True)
-thread.start()
+sensor_thread = Thread(target=controller.sensor_thread, daemon=True)
+circuit_thread = Thread(target=controller.circuit_thread, daemon=True)
+sensor_thread.start()
+circuit_thread.start()
+
 
 if __name__ == "__main__":
-    thread.join()
+    sensor_thread.join()
+    circuit_thread.join()
     
