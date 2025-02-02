@@ -1,6 +1,6 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO
-from controller import controller
+from controller import Controller
 from threading import Thread
 from time import sleep
 import os
@@ -8,12 +8,18 @@ import signal
 
 
 def main():
-    thread = Thread(target=read_sensor_data, daemon=True)
+    sensor_thread = Thread(target=controller.sensor_thread, daemon=True)
+    circuit_thread = Thread(target=controller.circuit_thread, daemon=True)
+    read_sensor_thread = Thread(target=read_sensor_data, daemon=True)
     shutdown_monitor = Thread(target=monitor_shutdown, daemon=True)
-    thread.start()
+    sensor_thread.start()
+    circuit_thread.start()
+    read_sensor_thread.start()
     shutdown_monitor.start()
     socketio.run(app, host="0.0.0.0", port=8000, debug=True, use_reloader=False)
 
+
+controller = Controller()
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode="threading")

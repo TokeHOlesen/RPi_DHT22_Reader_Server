@@ -2,7 +2,7 @@ import adafruit_dht
 import board
 from time import sleep
 from gpiozero import Button, LED
-from threading import Thread, Event, Lock
+from threading import Event, Lock
 
 from constants import *
 from data_logger_class import DataLogger
@@ -149,16 +149,3 @@ class Controller:
                             self.shift_reg.update_output()
             
             sleep(LOG_FREQUENCY)
-
-
-controller = Controller()
-sensor_thread = Thread(target=controller.sensor_thread, daemon=True)
-circuit_thread = Thread(target=controller.circuit_thread, daemon=True)
-sensor_thread.start()
-circuit_thread.start()
-
-
-if __name__ == "__main__":
-    sensor_thread.join()
-    circuit_thread.join()
-    
