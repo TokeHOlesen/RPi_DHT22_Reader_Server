@@ -1,12 +1,26 @@
 import adafruit_dht
 import board
+import sys
 from time import sleep
 from gpiozero import Button, LED
-from threading import Event, Lock
+from threading import Event, Lock, Thread
 
 from constants import *
 from data_logger_class import DataLogger
 from shift_register_class import ShiftRegister
+
+
+def main():
+    controller = Controller()
+    sensor_thread = Thread(target=controller.sensor_thread, daemon=True)
+    circuit_thread = Thread(target=controller.circuit_thread, daemon=True)
+    shutdown_monitor_thread = Thread(target=controller.monitor_shutdown, daemon=True)
+    sensor_thread.start()
+    circuit_thread.start()
+    shutdown_monitor_thread.start()
+    sensor_thread.join()
+    circuit_thread.join()
+    shutdown_monitor_thread.join()
 
 
 class Controller:
@@ -149,3 +163,14 @@ class Controller:
                             self.shift_reg.update_output()
             
             sleep(LOG_FREQUENCY)
+
+    def monitor_shutdown(self):
+        self.shutdown_event.wait()
+        sleep(2)
+        self.cleanup()
+        sys.exit()
+
+
+if __name__ == "__main__":
+    main()
+    
