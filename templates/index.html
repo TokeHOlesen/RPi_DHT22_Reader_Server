@@ -1,24 +1,26 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Sensor Data</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
-    <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', function() {
-            var socket = io();
-            // Listen for the 'sensor_update' event
-            socket.on('sensor_update', function(data) {
-                document.getElementById('temperature').innerText = data.temperature || '--';
-                document.getElementById('humidity').innerText = data.humidity || '--';
-            });
-        });
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Data</title>
+    <script>
+        function updateData() {
+            fetch('/latest')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('temp').innerText = data.temp || "--";
+                    document.getElementById('hum').innerText = data.hum || "--";
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+        setInterval(updateData, 1000);
+        window.onload = updateData;
     </script>
 </head>
 <body>
-    <h1>Real-Time Sensor Data</h1>
-    <p>Temperature: <span id="temperature">--</span></p>
-    <p>Humidity: <span id="humidity">--</span></p>
+    <h1>Live Sensor Data</h1>
+    <p><strong>Temperature:</strong> <span id="temp">Loading...</span></p>
+    <p><strong>Humidity:</strong> <span id="hum">Loading...</span></p>
 </body>
 </html>

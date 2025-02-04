@@ -166,7 +166,6 @@ class Controller:
 
     def monitor_shutdown(self):
         self.shutdown_event.wait()
-        sleep(2)
         self.cleanup()
         sys.exit()
 

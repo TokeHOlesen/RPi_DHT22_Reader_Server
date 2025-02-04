@@ -1,45 +1,28 @@
-from flask import Flask, render_template
-from flask_socketio import SocketIO
-from controller import Controller
-from threading import Thread
-from time import sleep
-import os
-import signal
+from flask import Flask, jsonify, render_template
+import time
+from datetime import datetime
+import sqlite3
 
-
-def main():
-    sensor_thread = Thread(target=controller.sensor_thread, daemon=True)
-    circuit_thread = Thread(target=controller.circuit_thread, daemon=True)
-    read_sensor_thread = Thread(target=read_sensor_data, daemon=True)
-    shutdown_monitor = Thread(target=monitor_shutdown, daemon=True)
-    sensor_thread.start()
-    circuit_thread.start()
-    read_sensor_thread.start()
-    shutdown_monitor.start()
-    socketio.run(app, host="0.0.0.0", port=8000, debug=True, use_reloader=False)
-
-
-controller = Controller()
 
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode="threading")
 
 
-# Runs as a thread, continuously reads the sensor data from the controller object
-def read_sensor_data():
-    while True:
-        data = controller.get_sensor_data()
-        socketio.emit("sensor_update", data)
-        socketio.sleep(1)
-
-
-# Runs as a thread, watches if shutdown conditions are met and initiates a shutdown routine when yes
-def monitor_shutdown():
-    controller.shutdown_event.wait()
-    sleep(2)
-    controller.cleanup()
-    # Kills the process using SIGINT, effectively emulating CTRL-C; other methods don't close the dht22 gracefully.
-    os.kill(os.getpid(), signal.SIGINT)
+def get_latest_entry():
+    conn = sqlite3.connect("sql_db.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT date, time, temperature, humidity FROM temp_hum ORDER BY id DESC LIMIT 1")
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        latest_date, latest_time, temperature, humidity = row
+        latest_entry_time_str = f"{latest_date} {latest_time}"
+        latest_entry_time = datetime.strptime(latest_entry_time_str, "%Y-%m-%d %H:%M:%S")
+        latest_entry_unix = latest_entry_time.timestamp()
+        current_time = time.time()
+        if current_time - latest_entry_unix > 5:
+            return {"temp": None, "hum": None}
+        return {"temp": f"{temperature:.1f}°C", "hum": f"{humidity:.1f}%"}
+    return {"temp": None, "hum": None}
 
 
 @app.route("/")
@@ -47,5 +30,10 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/latest")
+def latest():
+    return jsonify(get_latest_entry())
+
+
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
