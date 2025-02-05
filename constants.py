@@ -16,3 +16,5 @@ DS_PIN = 20
 
 # Path to the SQLite database file that contains sensor readings
 SQL_FILE_PATH = "./sql_db.db"
+RAM_FILE_PATH = "/dev/shm/temphum"
+RAM_TEMP_FILE_PATH = "/dev/shm/temphum.tmp"

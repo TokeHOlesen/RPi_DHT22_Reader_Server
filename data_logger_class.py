@@ -55,3 +55,4 @@ class DataLogger:
     def close(self):
         self.cursor.close()
         self.connection.close()
+        

@@ -1,9 +1,11 @@
 import adafruit_dht
 import board
 import sys
+import struct
 from time import sleep
 from gpiozero import Button, LED
 from threading import Event, Lock, Thread
+from os import replace
 
 from constants import *
 from data_logger_class import DataLogger
@@ -14,12 +16,15 @@ def main():
     controller = Controller()
     sensor_thread = Thread(target=controller.sensor_thread, daemon=True)
     circuit_thread = Thread(target=controller.circuit_thread, daemon=True)
+    logging_thread = Thread(target=controller.logging_thread, daemon=True)
     shutdown_monitor_thread = Thread(target=controller.monitor_shutdown, daemon=True)
     sensor_thread.start()
     circuit_thread.start()
+    logging_thread.start()
     shutdown_monitor_thread.start()
     sensor_thread.join()
     circuit_thread.join()
+    logging_thread.join()
     shutdown_monitor_thread.join()
 
 
@@ -124,8 +129,6 @@ class Controller:
         
 
     def sensor_thread(self):
-        # Initializes the SQL data logger
-        self.data_logger = DataLogger(SQL_FILE_PATH)
         while not self.shutdown_event.is_set():
             if self.read_sensor:
                 try:
@@ -134,7 +137,6 @@ class Controller:
                     
                     if temp is not None and hum is not None:
                         print(f"Temp: {temp}, humidity: {hum}")
-                        self.data_logger.log_data(temp, hum)
                             
                         with self.lock:
                             self.data["temperature"] = temp
@@ -142,7 +144,21 @@ class Controller:
                                  
                 except Exception as e:
                     print(str(e))
+                with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
+                    ram_file.write(struct.pack("ff", temp, hum))
+                replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
             sleep(LOG_FREQUENCY)
+    
+    def logging_thread(self):
+        # Initializes the SQL data logger
+        self.data_logger = DataLogger(SQL_FILE_PATH)
+        while not self.shutdown_event.is_set():
+            with self.lock:
+                temp = self.data["temperature"]
+                hum = self.data["humidity"]
+            if temp is not None and hum is not None:
+                self.data_logger.log_data(temp, hum)
+            sleep(10)
         self.data_logger.close()
     
     def circuit_thread(self):

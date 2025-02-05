@@ -2,27 +2,33 @@ from flask import Flask, jsonify, render_template
 import time
 from datetime import datetime
 import sqlite3
+import struct
+import os
+
+import constants
 
 
 app = Flask(__name__)
 
 
-def get_latest_entry():
-    conn = sqlite3.connect("sql_db.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT date, time, temperature, humidity FROM temp_hum ORDER BY id DESC LIMIT 1")
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        latest_date, latest_time, temperature, humidity = row
-        latest_entry_time_str = f"{latest_date} {latest_time}"
-        latest_entry_time = datetime.strptime(latest_entry_time_str, "%Y-%m-%d %H:%M:%S")
-        latest_entry_unix = latest_entry_time.timestamp()
-        current_time = time.time()
-        if current_time - latest_entry_unix > 5:
+def read_sensor_data():
+    """
+    Reads the sensor data from the ram file and returns a dict with the obtained values.
+    If the file is more than 5 seconds old or doesn't exist, the dict values returned are None.
+    """
+    try:
+        with open(RAM_FILE_PATH, "rb") as ram_file:
+            temperature, humidity = struct.unpack("ff", ram_file.read(8))
+
+        file_timestamp = os.path.getmtime(RAM_FILE_PATH)
+        current_timestamp = time.time()
+        if current_timestamp - file_timestamp < 5:
+            return {"temp": f"{temperature:.1f}°C", "hum": f"{humidity:.1f}%"}
+        else:
             return {"temp": None, "hum": None}
-        return {"temp": f"{temperature:.1f}°C", "hum": f"{humidity:.1f}%"}
-    return {"temp": None, "hum": None}
+
+    except FileNotFoundError:
+        return {"temp": None, "hum": None}
 
 
 @app.route("/")
@@ -32,7 +38,7 @@ def index():
 
 @app.route("/latest")
 def latest():
-    return jsonify(get_latest_entry())
+    return jsonify(read_sensor_data())
 
 
 if __name__ == "__main__":
