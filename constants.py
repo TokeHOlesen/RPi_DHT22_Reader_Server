@@ -1,5 +1,7 @@
+# How often the data is read from the sensors, in seconds
+UPDATE_FREQUENCY = 1
 # How often to read and log data, in seconds
-LOG_FREQUENCY = 1
+LOG_FREQUENCY = 10
 
 # GPIO pins
 ON_OFF_BTN_PIN = 2

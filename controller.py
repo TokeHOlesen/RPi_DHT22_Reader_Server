@@ -147,7 +147,7 @@ class Controller:
                 with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
                     ram_file.write(struct.pack("ff", temp, hum))
                 replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
-            sleep(LOG_FREQUENCY)
+            sleep(UPDATE_FREQUENCY)
     
     def logging_thread(self):
         # Initializes the SQL data logger
@@ -158,7 +158,10 @@ class Controller:
                 hum = self.data["humidity"]
             if temp is not None and hum is not None:
                 self.data_logger.log_data(temp, hum)
-            sleep(10)
+            for _ in range(LOG_FREQUENCY):
+                if self.shutdown_event.is_set():
+                    break
+                sleep(1)
         self.data_logger.close()
     
     def circuit_thread(self):
@@ -178,7 +181,7 @@ class Controller:
                             self.shift_reg.clear_input()
                             self.shift_reg.update_output()
             
-            sleep(LOG_FREQUENCY)
+            sleep(UPDATE_FREQUENCY)
 
     def monitor_shutdown(self):
         self.shutdown_event.wait()
