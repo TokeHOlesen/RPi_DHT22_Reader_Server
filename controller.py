@@ -69,10 +69,10 @@ class Controller:
         self.cycle_button.when_pressed = self.cycle_button_press_event
 
         # 0 for temperature, 1 for humidity, 2 for no leds
-        self.display_mode = 0
+        self.display_mode = 2
 
         # When True, sensors readings will be taken and data will be logged
-        self.active = False
+        self.active = True
 
         # When True, the program will end
         self.shutdown_event = Event()
@@ -128,31 +128,46 @@ class Controller:
         self.on_led.close()
         self.off_led.close()
 
-    def sensor_thread(self):
-        """
-        Reads data from the sensor, saves it to the self.data dict, and also saves the to numbers to a ram file
-        located in /dev/shm
-        """
-        while not self.shutdown_event.is_set():
-            if self.active:
-                try:
-                    temp = self.dht22.temperature
-                    hum = self.dht22.humidity
+def sensor_thread(self):
+    """
+    Reads data from the sensor, saves it to self.data, and writes it to a RAM file.
+    If the sensor read fails, it reuses the last successful values or writes NaN.
+    """
+    last_temp = None
+    last_hum = None
 
-                    # Saves the data so it can be accessed by the sql logger and the led controller
-                    if temp is not None and hum is not None:
-                        with self.lock:
-                            self.data["temperature"] = temp
-                            self.data["humidity"] = hum
+    while not self.shutdown_event.is_set():
+        if self.active:
+            temp, hum = None, None
 
-                except Exception as e:
-                    print(str(e))
-                
-                # Saves the data to a ram file to make it available to the http server
+            try:
+                temp = self.dht22.temperature
+                hum = self.dht22.humidity
+
+                if temp is not None and hum is not None:
+                    last_temp, last_hum = temp, hum
+                    with self.lock:
+                        self.data["temperature"] = temp
+                        self.data["humidity"] = hum
+                else:
+                    print("Warning: Sensor read failed, using last known values.")
+
+            except Exception as e:
+                print(f"Sensor error: {e}")
+
+            # Uses last known good values if the sensor read failed, otherwise NaN
+            temp = temp if temp is not None else (last_temp if last_temp is not None else float('nan'))
+            hum = hum if hum is not None else (last_hum if last_hum is not None else float('nan'))
+
+            # Save data to a RAM file for the HTTP server
+            try:
                 with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
                     ram_file.write(struct.pack("ff", temp, hum))
                 replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
-            sleep(UPDATE_FREQUENCY)
+            except Exception as e:
+                print(f"File write error: {e}")
+
+        sleep(UPDATE_FREQUENCY)
 
     def logging_thread(self):
         """Reads data from self.data and logs it in a sqlite3 database"""
