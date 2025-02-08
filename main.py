@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, render_template, request
 import time
-from datetime import datetime
+import datetime
 import sqlite3
 import struct
 import os
@@ -51,9 +51,9 @@ def get_data_from_sql(hours):
 
     data = [
         {
-            "datetime": f"{row[0]} {row[1]}",
-            "temperature": row[2],
-            "humidity": row[3]
+            "datetime": row[0],
+            "temperature": row[1],
+            "humidity": row[2]
         }
         for row in rows
     ]
@@ -74,7 +74,7 @@ def latest():
 
 @app.route("/history")
 def history():
-    hours = request.args.get('hours')
+    hours = int(request.args.get('hours'))
     return jsonify(get_data_from_sql(hours))
 
 

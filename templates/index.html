@@ -1,48 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Data</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}">
-    <script>
-        function updateData() {
-            fetch('/latest')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('temp').innerText = data.temp || "--";
-                    document.getElementById('hum').innerText = data.hum || "--";
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Data</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}" />
 
-                    // Trigger fade-in effect on the status dot
-                    const statusDot = document.getElementById('status-dot');
-                    statusDot.classList.add('flash');
+  <script>
+    function updateData() {
+      fetch('/latest')
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('temp').innerText = data.temp || "--";
+          document.getElementById('hum').innerText = data.hum || "--";
 
-                    // Remove flash class after 150ms to create a quick fade effect
-                    setTimeout(() => {
-                        statusDot.classList.remove('flash');
-                    }, 150);
-                })
-                .catch(error => console.error('Error fetching data:', error));
-        }
-        
-        setInterval(updateData, 1000);
-        window.onload = updateData;
-    </script>
+          // Trigger fade-in effect on the status dot
+          const statusDot = document.getElementById('status-dot');
+          statusDot.classList.add('flash');
+          setTimeout(() => {
+            statusDot.classList.remove('flash');
+          }, 150);
+        })
+        .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function fetchHistory(hours) {
+      fetch(`/history?hours=${hours}`)
+        .then(response => response.json())
+        .then(data => {
+          updateTable(data);
+        })
+        .catch(error => console.error("Error fetching history:", error));
+    }
+
+    function updateTable(data) {
+      const tableContainer = document.getElementById('table-container');
+      const tableBody = document.getElementById('data-table-body');
+
+      tableBody.innerHTML = ""; // Clear existing rows
+
+      data.forEach(entry => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${entry.datetime}</td>
+          <td>${entry.temperature}°C</td>
+          <td>${entry.humidity}%</td>
+        `;
+        tableBody.appendChild(row);
+      });
+
+      // Make table visible after data is fetched
+      tableContainer.style.display = "block";
+    }
+
+    setInterval(updateData, 1000);
+    window.onload = updateData;
+  </script>
 </head>
 <body>
-    <div class="data-box">
-        <div class="status-dot" id="status-dot"></div> <!-- Small flashing dot -->
-        <div class="data-display"><span id="temp">--</span></div>
-        <div class="data-display"><span id="hum">--</span></div>
-    </div>
+  <!-- Live Data Box -->
+  <div class="data-box">
+    <div class="status-dot" id="status-dot"></div>
+    <div class="data-display"><span id="temp">--</span></div>
+    <div class="data-display"><span id="hum">--</span></div>
+  </div>
 
-    <!-- Link container positioned directly under the data box -->
-    <div class="link-container">
-        <a href="/history?hours=1" class="link-box">Ostania godzina</a>
-        <a href="/history?hours=6" class="link-box">Ostatnie 6 godzin</a>
-        <a href="/history?hours=12" class="link-box">Ostatnie 12 godzin</a>
-        <a href="/history?hours=24" class="link-box">Ostatnie 24 godziny</a>
-        <a href="/history?hours=168" class="link-box">Ostatni tydzień</a>
-    </div>
+  <!-- Link Buttons -->
+  <div class="link-container">
+    <a href="#" class="link-box" onclick="fetchHistory(1); event.preventDefault();">Ostania godzina</a>
+    <a href="#" class="link-box" onclick="fetchHistory(6); event.preventDefault();">Ostatnie 6 godzin</a>
+    <a href="#" class="link-box" onclick="fetchHistory(12); event.preventDefault();">Ostatnie 12 godzin</a>
+    <a href="#" class="link-box" onclick="fetchHistory(24); event.preventDefault();">Ostatnie 24 godziny</a>
+    <a href="#" class="link-box" onclick="fetchHistory(168); event.preventDefault();">Ostatni tydzień</a>
+  </div>
+
+  <!-- Table Container (Initially Hidden) -->
+  <div id="table-container" class="table-container">
+    <table id="data-table">
+      <thead>
+        <tr>
+          <th>Czas</th>
+          <th>Temperatura (°C)</th>
+          <th>Wilgotność (%)</th>
+        </tr>
+      </thead>
+      <tbody id="data-table-body">
+        <!-- Data will be inserted here -->
+      </tbody>
+    </table>
+  </div>
 </body>
 </html>
