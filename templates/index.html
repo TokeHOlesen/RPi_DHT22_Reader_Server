@@ -5,8 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live Data</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}" />
-
+  <!-- Include Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <script>
+    // Global variables:
+    // Stores the most recent history data.
+    window.lastFetchedHistoryData = null;
+    // Stores the current timespan (in hours) that was last selected.
+    window.currentHistoryHours = null;
+    // Tracks the current view mode ("table" or "graph").
+    window.currentView = "table"; // Default view is table.
+
+    // Update the live data (temperature & humidity)
     function updateData() {
       fetch('/latest')
         .then(response => response.json())
@@ -24,20 +35,38 @@
         .catch(error => console.error('Error fetching data:', error));
     }
 
+    // Fetch historical data for a given number of hours.
+    // Also store the selected timespan in a global variable.
     function fetchHistory(hours) {
+      // Save the selected timespan for later auto-refresh.
+      window.currentHistoryHours = hours;
+      
       fetch(`/history?hours=${hours}`)
         .then(response => response.json())
         .then(data => {
-          updateTable(data);
+          // Store the fetched data globally.
+          window.lastFetchedHistoryData = data;
+          
+          // Update the view based on our current state variable.
+          if (window.currentView === "graph") {
+            updateGraph(data);
+          } else {
+            updateTable(data);
+          }
         })
         .catch(error => console.error("Error fetching history:", error));
     }
 
+    // Update the table with the fetched data.
     function updateTable(data) {
       const tableContainer = document.getElementById('table-container');
       const tableBody = document.getElementById('data-table-body');
+      const dataControls = document.getElementById('data-controls');
+      const graphContainer = document.getElementById('graph-container');
+      const toggleBtn = document.getElementById('show-graph');
 
-      tableBody.innerHTML = ""; // Clear existing rows
+      // Clear any existing rows.
+      tableBody.innerHTML = "";
 
       data.forEach(entry => {
         const row = document.createElement("tr");
@@ -49,10 +78,139 @@
         tableBody.appendChild(row);
       });
 
-      // Make table visible after data is fetched
+      // Ensure the table view is active.
       tableContainer.style.display = "block";
+      graphContainer.style.display = "none";
+      dataControls.style.display = "flex";
+      toggleBtn.innerText = "Show Graph";
+      window.currentView = "table";
     }
 
+    // Update (or create) the graph with the fetched data.
+    function updateGraph(data) {
+      const graphContainer = document.getElementById('graph-container');
+      const canvas = document.getElementById('data-chart');
+      
+      // Get the container's dimensions.
+      const containerWidth = graphContainer.clientWidth;
+      const containerHeight = graphContainer.clientHeight;
+      
+      // Set the canvas's internal pixel dimensions for crisp rendering.
+      canvas.width = containerWidth * window.devicePixelRatio;
+      canvas.height = containerHeight * window.devicePixelRatio;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+
+      const ctx = canvas.getContext('2d');
+      
+      // Reverse the arrays so older values are on the left.
+      const labels = data.map(entry => entry.datetime).reverse();
+      const tempData = data.map(entry => entry.temperature).reverse();
+      const humData = data.map(entry => entry.humidity).reverse();
+      
+      if (window.myChart) {
+        window.myChart.data.labels = labels;
+        window.myChart.data.datasets[0].data = tempData;
+        window.myChart.data.datasets[1].data = humData;
+        window.myChart.update();
+      } else {
+        window.myChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Temperature (°C)',
+                data: tempData,
+                borderColor: '#FF6384',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                fill: false,
+                tension: 0.1
+              },
+              {
+                label: 'Humidity (%)',
+                data: humData,
+                borderColor: '#36A2EB',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: false,
+                tension: 0.1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,  // Render using the container's dimensions
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Time'
+                }
+              },
+              y: {
+                beginAtZero: true,
+                suggestedMin: 0,
+                suggestedMax: 100,
+                title: {
+                  display: true,
+                  text: 'Value'
+                }
+              }
+            }
+          }
+        });
+      }
+      window.currentView = "graph";
+    }
+
+    // Hide both the table and the graph (and the control buttons).
+    function hideDataDisplay() {
+      document.getElementById('table-container').style.display = "none";
+      document.getElementById('graph-container').style.display = "none";
+      document.getElementById('data-controls').style.display = "none";
+    }
+
+    // Set up event listeners once the DOM is loaded.
+    document.addEventListener("DOMContentLoaded", function() {
+      const toggleBtn = document.getElementById("show-graph");
+      const tableContainer = document.getElementById('table-container');
+      const graphContainer = document.getElementById('graph-container');
+
+      // Toggle between graph and table view.
+      toggleBtn.addEventListener("click", function() {
+        if (window.currentView === "table") {
+          // Switch to graph view.
+          window.currentView = "graph";
+          tableContainer.style.display = "none";
+          graphContainer.style.display = "block";
+          toggleBtn.innerText = "Show Table";
+          // Immediately update the graph with the stored data, if available.
+          if (window.lastFetchedHistoryData) {
+            updateGraph(window.lastFetchedHistoryData);
+          }
+        } else {
+          // Switch back to table view.
+          window.currentView = "table";
+          graphContainer.style.display = "none";
+          tableContainer.style.display = "block";
+          toggleBtn.innerText = "Show Graph";
+        }
+      });
+
+      // Set up the Hide Data button.
+      document.getElementById("hide-data").addEventListener("click", function() {
+        hideDataDisplay();
+      });
+
+      // Automatically refresh history every minute if a timespan is selected.
+      setInterval(function() {
+        if (window.currentHistoryHours !== null) {
+          fetchHistory(window.currentHistoryHours);
+        }
+      }, 60000); // 60000 ms = 1 minute
+    });
+
+    // Refresh live data every second.
     setInterval(updateData, 1000);
     window.onload = updateData;
   </script>
@@ -72,6 +230,17 @@
     <a href="#" class="link-box" onclick="fetchHistory(12); event.preventDefault();">Ostatnie 12 godzin</a>
     <a href="#" class="link-box" onclick="fetchHistory(24); event.preventDefault();">Ostatnie 24 godziny</a>
     <a href="#" class="link-box" onclick="fetchHistory(168); event.preventDefault();">Ostatni tydzień</a>
+  </div>
+
+  <!-- Data Controls (Shown Only When Data Is Displayed) -->
+  <div id="data-controls" class="button-container" style="display: none;">
+    <button class="link-box" id="show-graph">Show Graph</button>
+    <button class="link-box" id="hide-data">Hide Data</button>
+  </div>
+
+  <!-- Graph Container (Initially Hidden) -->
+  <div id="graph-container" class="graph-container" style="display: none;">
+    <canvas id="data-chart"></canvas>
   </div>
 
   <!-- Table Container (Initially Hidden) -->
