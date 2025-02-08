@@ -153,15 +153,16 @@ class Controller:
         # Initializes the SQL data logger
         self.data_logger = DataLogger(SQL_FILE_PATH)
         while not self.shutdown_event.is_set():
-            with self.lock:
-                temp = self.data["temperature"]
-                hum = self.data["humidity"]
-            if temp is not None and hum is not None:
-                self.data_logger.log_data(temp, hum)
-            for _ in range(LOG_FREQUENCY):
-                if self.shutdown_event.is_set():
-                    break
-                sleep(1)
+            if self.read_sensor:
+                with self.lock:
+                    temp = self.data["temperature"]
+                    hum = self.data["humidity"]
+                if temp is not None and hum is not None:
+                    self.data_logger.log_data(temp, hum)
+                for _ in range(LOG_FREQUENCY):
+                    if self.shutdown_event.is_set():
+                        break
+                    sleep(1)
         self.data_logger.close()
     
     def circuit_thread(self):

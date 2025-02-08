@@ -32,24 +32,21 @@ class DataLogger:
 
     def create_db_table(self):
         self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS temp_hum (
+            """CREATE TABLE IF NOT EXISTS hum_temp (
             id INTEGER PRIMARY KEY,
-            date TEXT NOT NULL,
-            time TEXT NOT NULL,
+            datetime TEXT NOT NULL,
             temperature REAL NOT NULL,
             humidity REAL NOT NULL
             );"""
         )
         
     def log_data(self, temp, hum):
-        now = datetime.now()
-        current_date = now.strftime("%Y-%m-%d")
-        current_time = now.strftime("%H:%M:%S")
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.connection:
             self.cursor.execute(
-                "INSERT INTO temp_hum (date, time, temperature, humidity) "
-                "VALUES (?, ?, ?, ?);",
-                (current_date, current_time, temp, hum)
+                "INSERT INTO hum_temp (datetime, temperature, humidity) "
+                "VALUES (?, ?, ?);",
+                (current_datetime, temp, hum)
             )
 
     def close(self):

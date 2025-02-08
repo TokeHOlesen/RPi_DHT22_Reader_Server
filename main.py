@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 import time
 from datetime import datetime
 import sqlite3
@@ -29,6 +29,37 @@ def read_sensor_data():
 
     except FileNotFoundError:
         return {"temp": None, "hum": None}
+    
+
+def get_data_from_sql(hours):
+    now = datetime.datetime.now()
+    time_threshold = now - datetime.timedelta(hours=hours)
+    
+    date_time_threshold = time_threshold.strftime("%Y-%m-%d %H:%M:%S")
+
+    connection = sqlite3.connect(SQL_FILE_PATH)
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT datetime, temperature, humidity 
+        FROM hum_temp 
+        WHERE datetime >= ? 
+        ORDER BY datetime DESC
+    """, (date_time_threshold,))
+
+    rows = cursor.fetchall()
+
+    data = [
+        {
+            "datetime": f"{row[0]} {row[1]}",
+            "temperature": row[2],
+            "humidity": row[3]
+        }
+        for row in rows
+    ]
+
+    connection.close()
+    return data
 
 
 @app.route("/")
@@ -39,6 +70,12 @@ def index():
 @app.route("/latest")
 def latest():
     return jsonify(read_sensor_data())
+
+
+@app.route("/history")
+def history():
+    hours = request.args.get('hours')
+    return jsonify(get_data_from_sql(hours))
 
 
 if __name__ == "__main__":
