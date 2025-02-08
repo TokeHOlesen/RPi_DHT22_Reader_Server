@@ -128,46 +128,46 @@ class Controller:
         self.on_led.close()
         self.off_led.close()
 
-def sensor_thread(self):
-    """
-    Reads data from the sensor, saves it to self.data, and writes it to a RAM file.
-    If the sensor read fails, it reuses the last successful values or writes NaN.
-    """
-    last_temp = None
-    last_hum = None
+    def sensor_thread(self):
+        """
+        Reads data from the sensor, saves it to self.data, and writes it to a RAM file.
+        If the sensor read fails, it reuses the last successful values or writes NaN.
+        """
+        last_temp = None
+        last_hum = None
 
-    while not self.shutdown_event.is_set():
-        if self.active:
-            temp, hum = None, None
+        while not self.shutdown_event.is_set():
+            if self.active:
+                temp, hum = None, None
 
-            try:
-                temp = self.dht22.temperature
-                hum = self.dht22.humidity
+                try:
+                    temp = self.dht22.temperature
+                    hum = self.dht22.humidity
 
-                if temp is not None and hum is not None:
-                    last_temp, last_hum = temp, hum
-                    with self.lock:
-                        self.data["temperature"] = temp
-                        self.data["humidity"] = hum
-                else:
-                    print("Warning: Sensor read failed, using last known values.")
+                    if temp is not None and hum is not None:
+                        last_temp, last_hum = temp, hum
+                        with self.lock:
+                            self.data["temperature"] = temp
+                            self.data["humidity"] = hum
+                    else:
+                        print("Warning: Sensor read failed, using last known values.")
 
-            except Exception as e:
-                print(f"Sensor error: {e}")
+                except Exception as e:
+                    print(f"Sensor error: {e}")
 
-            # Uses last known good values if the sensor read failed, otherwise NaN
-            temp = temp if temp is not None else (last_temp if last_temp is not None else float('nan'))
-            hum = hum if hum is not None else (last_hum if last_hum is not None else float('nan'))
+                # Uses last known good values if the sensor read failed, otherwise NaN
+                temp = temp if temp is not None else (last_temp if last_temp is not None else float('nan'))
+                hum = hum if hum is not None else (last_hum if last_hum is not None else float('nan'))
 
-            # Save data to a RAM file for the HTTP server
-            try:
-                with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
-                    ram_file.write(struct.pack("ff", temp, hum))
-                replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
-            except Exception as e:
-                print(f"File write error: {e}")
+                # Save data to a RAM file for the HTTP server
+                try:
+                    with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
+                        ram_file.write(struct.pack("ff", temp, hum))
+                    replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
+                except Exception as e:
+                    print(f"File write error: {e}")
 
-        sleep(UPDATE_FREQUENCY)
+            sleep(UPDATE_FREQUENCY)
 
     def logging_thread(self):
         """Reads data from self.data and logs it in a sqlite3 database"""
