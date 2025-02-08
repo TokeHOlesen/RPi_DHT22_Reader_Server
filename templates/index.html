@@ -4,6 +4,118 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Data</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-color: #fbfbfb;
+        }
+
+        /* Data Box */
+        .data-box {
+            width: 300px;
+            height: 240px;
+            background-color: #007BFF;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0px 6px 14px rgba(0, 0, 0, 0.25);
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .data-display {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        /* Status dot */
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #00ff00;
+            border-radius: 50%;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            opacity: 0;
+            transition: opacity 0.075s ease-in-out;
+        }
+
+        .status-dot.flash {
+            opacity: 1;
+        }
+
+        /* Container for links */
+        .link-container {
+            position: absolute;
+            top: 310px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Style for each link */
+        .link-box {
+            background-color: #339CFF;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 16px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+            min-width: 150px;
+            text-align: center;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .link-box:hover {
+            background-color: #1F7FD3;
+        }
+
+        /* Mobile Styles */
+        @media (max-width: 768px) {
+            .data-box {
+                width: 80vw;
+                height: 60vw;
+                max-width: 400px;
+                border-radius: 15px;
+            }
+
+            .link-container {
+                flex-direction: column;
+                align-items: center;
+                width: 80vw;
+                max-width: 400px;
+                top: 330px;
+            }
+
+            .link-box {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
     <script>
         function updateData() {
             fetch('/latest')
@@ -11,16 +123,37 @@
                 .then(data => {
                     document.getElementById('temp').innerText = data.temp || "--";
                     document.getElementById('hum').innerText = data.hum || "--";
+
+                    // Trigger fade-in effect on the status dot
+                    const statusDot = document.getElementById('status-dot');
+                    statusDot.classList.add('flash');
+
+                    // Remove flash class after 150ms to create a quick fade effect
+                    setTimeout(() => {
+                        statusDot.classList.remove('flash');
+                    }, 150);
                 })
                 .catch(error => console.error('Error fetching data:', error));
         }
+        
         setInterval(updateData, 1000);
         window.onload = updateData;
     </script>
 </head>
 <body>
-    <h1>Live Sensor Data</h1>
-    <p><strong>Temperature:</strong> <span id="temp">Loading...</span></p>
-    <p><strong>Humidity:</strong> <span id="hum">Loading...</span></p>
+    <div class="data-box">
+        <div class="status-dot" id="status-dot"></div> <!-- Small flashing dot -->
+        <div class="data-display"><span id="temp">--</span></div>
+        <div class="data-display"><span id="hum">--</span></div>
+    </div>
+
+    <!-- Link container positioned directly under the data box -->
+    <div class="link-container">
+        <a href="/history?hours=1" class="link-box">Ostania godzina</a>
+        <a href="/history?hours=6" class="link-box">Ostatnie 6 godzin</a>
+        <a href="/history?hours=12" class="link-box">Ostatnie 12 godzin</a>
+        <a href="/history?hours=24" class="link-box">Ostatnie 24 godziny</a>
+        <a href="/history/custom" class="link-box">Ostatni tydzień</a>
+    </div>
 </body>
 </html>
