@@ -1,4 +1,3 @@
-/* Global Styles */
 * {
   margin: 0;
   padding: 0;
@@ -8,11 +7,10 @@
 
 body {
   background-color: #fbfbfb;
-  /* Using normal document flow; adding padding for breathing room */
   padding: 20px;
 }
 
-/* Live Data Box */
+/* A box for displaying the most recent sensor data */
 .data-box {
   width: 300px;
   height: 240px;
@@ -30,12 +28,14 @@ body {
   position: relative;
 }
 
+/* The values displayed inside data-box */
 .data-display {
   font-size: 72px;
   font-weight: bold;
   margin: 5px 0;
 }
 
+/* A dot that flashes each time new sensor data has been fetched */
 .status-dot {
   width: 12px;
   height: 12px;
@@ -52,7 +52,7 @@ body {
   opacity: 1;
 }
 
-/* Link Container */
+/* A container for buttons for choosing data display timespan */
 .link-container {
   margin: 20px auto;
   display: flex;
@@ -61,6 +61,7 @@ body {
   flex-wrap: wrap;
 }
 
+/* Choose timespan buttons */
 .link-box {
   background-color: #339CFF;
   color: white;
@@ -70,7 +71,7 @@ body {
   text-decoration: none;
   font-weight: bold;
   transition: background-color 0.3s ease;
-  min-width: 150px;
+  width: 220px;
   text-align: center;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
 }
@@ -81,86 +82,55 @@ body {
 
 /* Table Container */
 .table-container {
-  display: none; /* Hidden by default */
+  display: none;
   width: 100%;
   max-width: 800px;
   margin: 20px auto;
   text-align: center;
 }
 
-/* Updated Table Styling */
+/* Table for displaying historical data */
 table {
   width: 100%;
   border-collapse: collapse;
-  background-color: #fff;  /* Base background remains white */
-  color: #002B5B;          /* Dark blue text for readability */
+  background-color: #FFFFFF;
+  color: #002B5B;
   font-size: 16px;
-  border-radius: 12px;     /* Rounded corners */
-  overflow: hidden;        /* Ensures rounded corners apply */
-  box-shadow: 0px 4px 12px rgba(0, 123, 255, 0.2); /* Subtle blue-tinted shadow */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0px 4px 12px rgba(0, 123, 255, 0.2);
 }
 
-/* Header Row */
 th {
-  background-color: #339CFF; /* Lighter blue for the header */
+  background-color: #339CFF;
   color: #fff;
   font-weight: bold;
   text-transform: uppercase;
-  padding: 14px;
+  padding: 12px;
+  text-align: center;
+  border-bottom: 1px solid rgba(102, 179, 255, 0.4);
 }
 
-/* Table Rows */
 tr {
-  background-color: #F0F8FF; /* A gentle blue tint for odd rows */
+  background-color: #F0F8FF;
 }
 
 tr:nth-child(even) {
-  background-color: #E0F4FF; /* Slightly bolder blue tint for even rows */
+  background-color: #E0F4FF;
 }
 
-tr:hover {
-  background-color: #D0EAFF; /* Deepens on hover for a clear interactive cue */
-}
-
-/* Table Cells */
-th, td {
-  padding: 12px;
-  border-bottom: 1px solid rgba(102, 179, 255, 0.4); /* Ties in with the header's lighter blue */
-  text-align: center;
-}
-
-/* Rounded Corners for Last Row */
 tr:last-child td:first-child {
   border-bottom-left-radius: 12px;
-}
-
-tr:last-child td:last-child {
   border-bottom-right-radius: 12px;
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .data-box {
-      width: 80vw;
-      height: 60vw;
-      max-width: 400px;
-      border-radius: 15px;
-  }
-
-  .link-container {
-      flex-direction: column;
-      align-items: center;
-      width: 80vw;
-      max-width: 400px;
-  }
-
-  .link-box {
-      width: 100%;
-      text-align: center;
-  }
+td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(102, 179, 255, 0.4);
+  text-align: center;
 }
 
-/* Data Controls Container (New) */
+/* Container for data view control buttons */
 .button-container {
   margin: 20px auto;
   display: flex;
@@ -169,25 +139,55 @@ tr:last-child td:last-child {
   flex-wrap: wrap;
 }
 
-/* Ensure buttons styled as .link-box look proper */
 .button-container .link-box {
   cursor: pointer;
   border: none;
   outline: none;
 }
 
-/* Graph Container (Modified) */
+/* Graph container */
 .graph-container {
-  display: none; /* Hidden by default */
+  display: none;
   width: 80%;
-  height: 400px;  /* Fixed height for a shorter graph */
+  height: 400px;
   margin: 20px auto;
   text-align: center;
 }
 
-/* Ensure the Chart.js canvas fills the container */
 .graph-container canvas {
   width: 100%;
   height: 100%;
 }
 
+/* Mobile display settings */
+@media (max-width: 768px) {
+  .data-box {
+    width: 80vw;
+    height: 60vw;
+    max-width: 400px;
+    border-radius: 15px;
+  }
+
+  .link-container {
+    flex-direction: column;
+    align-items: center;
+    width: 80vw;
+    max-width: 400px;
+  }
+
+  .link-box {
+    width: 80vw;
+    text-align: center;
+  }
+
+  .graph-container {
+    width: 100%;
+    height: 60vw;
+    margin: 20px 0;
+  }
+
+  .graph-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}

@@ -9,7 +9,7 @@ CYCLE_BUTTON_PIN = 21
 ON_LED_PIN = 27
 OFF_LED_PIN = 17
 
-# Shift register GPIO pins 
+# Shift register GPIO pins
 VCC_PIN = 4
 SRCLR_PIN = 3
 SRCLK_PIN = 24

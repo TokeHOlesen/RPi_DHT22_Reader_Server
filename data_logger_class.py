@@ -1,4 +1,3 @@
-
 from datetime import date, datetime
 from pathlib import Path
 import csv
@@ -10,10 +9,13 @@ class DataLogger:
     def __init__(self, file_path):
         self.db_file_path = Path(file_path)
         self.initialize()
-    
+
     def initialize(self):
         if not self.db_file_path.is_file():
-            print("Warning: the database file does not exist.\nAttempting to create a new database file... ", end="")
+            print(
+                "Warning: the database file does not exist.\nAttempting to create a new database file... ",
+                end="",
+            )
             try:
                 with open(self.db_file_path, "wb") as _:
                     pass
@@ -39,17 +41,16 @@ class DataLogger:
             humidity REAL NOT NULL
             );"""
         )
-        
+
     def log_data(self, temp, hum):
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.connection:
             self.cursor.execute(
                 "INSERT INTO hum_temp (datetime, temperature, humidity) "
                 "VALUES (?, ?, ?);",
-                (current_datetime, temp, hum)
+                (current_datetime, temp, hum),
             )
 
     def close(self):
         self.cursor.close()
         self.connection.close()
-        

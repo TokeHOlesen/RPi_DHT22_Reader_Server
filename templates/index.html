@@ -1,31 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Data</title>
+  <title>Temperatura i wilgotnośċ powietrza</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/stylesheet.css') }}" />
   <!-- Include Chart.js from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <script>
-    // Global variables:
-    // Stores the most recent history data.
+    // Global variables
+    // Most recently fetched historical data
     window.lastFetchedHistoryData = null;
-    // Stores the current timespan (in hours) that was last selected.
+    // Currently chosen timespan (in hours)
     window.currentHistoryHours = null;
-    // Tracks the current view mode ("table" or "graph").
-    window.currentView = "table"; // Default view is table.
+    // Actual data view mode (table or graph, table by default)
+    window.currentView = "table";
 
-    // Update the live data (temperature & humidity)
+    // Fetches the most recent sensor data
     function updateData() {
       fetch('/latest')
         .then(response => response.json())
         .then(data => {
+          // Displays "--" if fetched data is null
           document.getElementById('temp').innerText = data.temp || "--";
           document.getElementById('hum').innerText = data.hum || "--";
 
-          // Trigger fade-in effect on the status dot
+          // Whenever new data gets fetched, a green dot flashes
           const statusDot = document.getElementById('status-dot');
           statusDot.classList.add('flash');
           setTimeout(() => {
@@ -35,29 +36,27 @@
         .catch(error => console.error('Error fetching data:', error));
     }
 
-    // Fetch historical data for a given number of hours.
-    // Also store the selected timespan in a global variable.
+    // Fetches historical data (spanning from now to a given number of hours in the past)
     function fetchHistory(hours) {
-      // Save the selected timespan for later auto-refresh.
       window.currentHistoryHours = hours;
       
       fetch(`/history?hours=${hours}`)
         .then(response => response.json())
         .then(data => {
-          // Store the fetched data globally.
+          // Saves the data to a global variable
           window.lastFetchedHistoryData = data;
           
-          // Update the view based on our current state variable.
+          // Passes the data to the currently selected display mode
           if (window.currentView === "graph") {
             updateGraph(data);
           } else {
             updateTable(data);
           }
         })
-        .catch(error => console.error("Error fetching history:", error));
+        .catch(error => console.error("Błąd pobierania historii:", error));
     }
 
-    // Update the table with the fetched data.
+    // Updates the table with the most recently fetched data
     function updateTable(data) {
       const tableContainer = document.getElementById('table-container');
       const tableBody = document.getElementById('data-table-body');
@@ -65,7 +64,6 @@
       const graphContainer = document.getElementById('graph-container');
       const toggleBtn = document.getElementById('show-graph');
 
-      // Clear any existing rows.
       tableBody.innerHTML = "";
 
       data.forEach(entry => {
@@ -78,24 +76,29 @@
         tableBody.appendChild(row);
       });
 
-      // Ensure the table view is active.
       tableContainer.style.display = "block";
       graphContainer.style.display = "none";
-      dataControls.style.display = "flex";
-      toggleBtn.innerText = "Show Graph";
+      document.getElementById('data-controls').style.display = "flex";
+      toggleBtn.innerText = "Pokaż wykres";
       window.currentView = "table";
     }
 
-    // Update (or create) the graph with the fetched data.
+    // Updates or creates a graph with the most recently fetched data
     function updateGraph(data) {
+      const tableContainer = document.getElementById('table-container');
       const graphContainer = document.getElementById('graph-container');
       const canvas = document.getElementById('data-chart');
-      
-      // Get the container's dimensions.
+      const dataControls = document.getElementById('data-controls');
+      const toggleBtn = document.getElementById('show-graph');
+
+      tableContainer.style.display = "none";
+      graphContainer.style.display = "block";
+      dataControls.style.display = "flex";
+      toggleBtn.innerText = "Pokaż tabelę";
+
       const containerWidth = graphContainer.clientWidth;
       const containerHeight = graphContainer.clientHeight;
       
-      // Set the canvas's internal pixel dimensions for crisp rendering.
       canvas.width = containerWidth * window.devicePixelRatio;
       canvas.height = containerHeight * window.devicePixelRatio;
       canvas.style.width = '100%';
@@ -103,7 +106,7 @@
 
       const ctx = canvas.getContext('2d');
       
-      // Reverse the arrays so older values are on the left.
+      // Reverses data, to make sure that the oldest entries show up on the left
       const labels = data.map(entry => entry.datetime).reverse();
       const tempData = data.map(entry => entry.temperature).reverse();
       const humData = data.map(entry => entry.humidity).reverse();
@@ -120,7 +123,7 @@
             labels: labels,
             datasets: [
               {
-                label: 'Temperature (°C)',
+                label: 'Temperatura (°C)',
                 data: tempData,
                 borderColor: '#FF6384',
                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
@@ -128,7 +131,7 @@
                 tension: 0.1
               },
               {
-                label: 'Humidity (%)',
+                label: 'Wilgotność (%)',
                 data: humData,
                 borderColor: '#36A2EB',
                 backgroundColor: 'rgba(54, 162, 235, 0.2)',
@@ -139,12 +142,11 @@
           },
           options: {
             responsive: true,
-            maintainAspectRatio: false,  // Render using the container's dimensions
+            maintainAspectRatio: false,
             scales: {
               x: {
                 title: {
-                  display: true,
-                  text: 'Time'
+                  display: true
                 }
               },
               y: {
@@ -152,8 +154,7 @@
                 suggestedMin: 0,
                 suggestedMax: 100,
                 title: {
-                  display: true,
-                  text: 'Value'
+                  display: true
                 }
               }
             }
@@ -163,67 +164,66 @@
       window.currentView = "graph";
     }
 
-    // Hide both the table and the graph (and the control buttons).
+    // Hides the current data view and the control buttons for the data view
     function hideDataDisplay() {
       document.getElementById('table-container').style.display = "none";
       document.getElementById('graph-container').style.display = "none";
       document.getElementById('data-controls').style.display = "none";
     }
 
-    // Set up event listeners once the DOM is loaded.
+    // Adds event listeners
     document.addEventListener("DOMContentLoaded", function() {
       const toggleBtn = document.getElementById("show-graph");
       const tableContainer = document.getElementById('table-container');
       const graphContainer = document.getElementById('graph-container');
 
-      // Toggle between graph and table view.
+      // Switches between table and graph view
       toggleBtn.addEventListener("click", function() {
         if (window.currentView === "table") {
-          // Switch to graph view.
           window.currentView = "graph";
           tableContainer.style.display = "none";
           graphContainer.style.display = "block";
-          toggleBtn.innerText = "Show Table";
-          // Immediately update the graph with the stored data, if available.
+          toggleBtn.innerText = "Pokaż tabelę";
+          // Updates the graph immediately when switching to graph mode
           if (window.lastFetchedHistoryData) {
             updateGraph(window.lastFetchedHistoryData);
           }
         } else {
-          // Switch back to table view.
           window.currentView = "table";
           graphContainer.style.display = "none";
           tableContainer.style.display = "block";
-          toggleBtn.innerText = "Show Graph";
+          toggleBtn.innerText = "Pokaż wykres";
         }
       });
 
-      // Set up the Hide Data button.
+      // Adds event listener for hideDataDisplay()
       document.getElementById("hide-data").addEventListener("click", function() {
         hideDataDisplay();
       });
 
-      // Automatically refresh history every minute if a timespan is selected.
+      // Automatically refreshes historical data every minute
       setInterval(function() {
         if (window.currentHistoryHours !== null) {
           fetchHistory(window.currentHistoryHours);
         }
-      }, 60000); // 60000 ms = 1 minute
+      }, 60000);
     });
 
-    // Refresh live data every second.
+    // Refreshes the sensor data view every second
     setInterval(updateData, 1000);
     window.onload = updateData;
   </script>
+
 </head>
 <body>
-  <!-- Live Data Box -->
+  <!-- Displays the current sensor data -->
   <div class="data-box">
     <div class="status-dot" id="status-dot"></div>
     <div class="data-display"><span id="temp">--</span></div>
     <div class="data-display"><span id="hum">--</span></div>
   </div>
 
-  <!-- Link Buttons -->
+  <!-- Timespan selection buttons for data view -->
   <div class="link-container">
     <a href="#" class="link-box" onclick="fetchHistory(1); event.preventDefault();">Ostania godzina</a>
     <a href="#" class="link-box" onclick="fetchHistory(6); event.preventDefault();">Ostatnie 6 godzin</a>
@@ -232,18 +232,18 @@
     <a href="#" class="link-box" onclick="fetchHistory(168); event.preventDefault();">Ostatni tydzień</a>
   </div>
 
-  <!-- Data Controls (Shown Only When Data Is Displayed) -->
+  <!-- Data view control buttons (only visible when historical data is being displayed) -->
   <div id="data-controls" class="button-container" style="display: none;">
-    <button class="link-box" id="show-graph">Show Graph</button>
-    <button class="link-box" id="hide-data">Hide Data</button>
+    <button class="link-box" id="show-graph">Pokaż wykres</button>
+    <button class="link-box" id="hide-data">Ukryj dane</button>
   </div>
 
-  <!-- Graph Container (Initially Hidden) -->
+  <!-- Graph container -->
   <div id="graph-container" class="graph-container" style="display: none;">
     <canvas id="data-chart"></canvas>
   </div>
 
-  <!-- Table Container (Initially Hidden) -->
+  <!-- Table container -->
   <div id="table-container" class="table-container">
     <table id="data-table">
       <thead>
@@ -253,9 +253,7 @@
           <th>Wilgotność (%)</th>
         </tr>
       </thead>
-      <tbody id="data-table-body">
-        <!-- Data will be inserted here -->
-      </tbody>
+      <tbody id="data-table-body"></tbody>
     </table>
   </div>
 </body>
