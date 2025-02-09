@@ -10,23 +10,21 @@
   
   <script>
     // Global variables
-    // Most recently fetched historical data
     window.lastFetchedHistoryData = null;
-    // Currently chosen timespan (in hours)
     window.currentHistoryHours = 1;
-    // Actual data view mode (table or graph, table by default)
     window.currentView = "table";
+    // New flag: whether historical data is currently visible.
+    window.historicalDataVisible = false;
 
     // Fetches the most recent sensor data
     function updateData() {
       fetch('/latest')
         .then(response => response.json())
         .then(data => {
-          // Displays "--" if fetched data is null
           document.getElementById('temp').innerText = data.temp || "--";
           document.getElementById('hum').innerText = data.hum || "--";
 
-          // Whenever new data gets fetched, a green dot flashes
+          // Flash a green dot whenever new data is fetched
           const statusDot = document.getElementById('status-dot');
           statusDot.classList.add('flash');
           setTimeout(() => {
@@ -36,27 +34,34 @@
         .catch(error => console.error('Error fetching data:', error));
     }
 
-    // Fetches historical data (spanning from now to a given number of hours in the past)
+    // Fetches historical data and updates the UI only if the history view is visible.
     function fetchHistory(hours) {
       window.currentHistoryHours = hours;
       
       fetch(`/history?hours=${hours}`)
         .then(response => response.json())
         .then(data => {
-          // Saves the data to a global variable
+          // Save the data globally
           window.lastFetchedHistoryData = data;
-          
-          // Passes the data to the currently selected display mode
-          if (window.currentView === "graph") {
-            updateGraph(data);
-          } else {
-            updateTable(data);
+          // Only update the UI if the historical view is visible.
+          if (window.historicalDataVisible) {
+            if (window.currentView === "graph") {
+              updateGraph(data);
+            } else {
+              updateTable(data);
+            }
           }
         })
         .catch(error => console.error("Błąd pobierania historii:", error));
     }
 
-    // Updates the table with the most recently fetched data
+    // Helper function for the timespan buttons to both show the history view and fetch data.
+    function showHistory(hours) {
+      window.historicalDataVisible = true;
+      fetchHistory(hours);
+    }
+
+    // Updates the table with historical data
     function updateTable(data) {
       const tableContainer = document.getElementById('table-container');
       const tableBody = document.getElementById('data-table-body');
@@ -64,8 +69,8 @@
       const graphContainer = document.getElementById('graph-container');
       const toggleBtn = document.getElementById('show-graph');
 
+      // Populate the table
       tableBody.innerHTML = "";
-
       data.forEach(entry => {
         const row = document.createElement("tr");
         row.innerHTML = `
@@ -76,14 +81,15 @@
         tableBody.appendChild(row);
       });
 
+      // Show the table view and the controls; hide the graph.
       tableContainer.style.display = "block";
       graphContainer.style.display = "none";
-      document.getElementById('data-controls').style.display = "flex";
+      dataControls.style.display = "flex";
       toggleBtn.innerText = "Pokaż wykres";
       window.currentView = "table";
     }
 
-    // Updates or creates a graph with the most recently fetched data
+    // Updates (or creates) the graph with historical data
     function updateGraph(data) {
       const tableContainer = document.getElementById('table-container');
       const graphContainer = document.getElementById('graph-container');
@@ -91,26 +97,27 @@
       const dataControls = document.getElementById('data-controls');
       const toggleBtn = document.getElementById('show-graph');
 
+      // Show the graph view and the controls; hide the table.
       tableContainer.style.display = "none";
       graphContainer.style.display = "block";
       dataControls.style.display = "flex";
       toggleBtn.innerText = "Pokaż tabelę";
 
+      // Adjust canvas size for responsiveness
       const containerWidth = graphContainer.clientWidth;
       const containerHeight = graphContainer.clientHeight;
-      
       canvas.width = containerWidth * window.devicePixelRatio;
       canvas.height = containerHeight * window.devicePixelRatio;
       canvas.style.width = '100%';
       canvas.style.height = '100%';
 
       const ctx = canvas.getContext('2d');
-      
-      // Reverses data, to make sure that the oldest entries show up on the left
+
+      // Reverse the data so that the oldest entries are on the left
       const labels = data.map(entry => entry.datetime).reverse();
       const tempData = data.map(entry => entry.temperature).reverse();
       const humData = data.map(entry => entry.humidity).reverse();
-      
+
       if (window.myChart) {
         window.myChart.data.labels = labels;
         window.myChart.data.datasets[0].data = tempData;
@@ -145,17 +152,13 @@
             maintainAspectRatio: false,
             scales: {
               x: {
-                title: {
-                  display: true
-                }
+                title: { display: true }
               },
               y: {
                 beginAtZero: true,
                 suggestedMin: 0,
                 suggestedMax: 100,
-                title: {
-                  display: true
-                }
+                title: { display: true }
               }
             }
           }
@@ -164,27 +167,28 @@
       window.currentView = "graph";
     }
 
-    // Hides the current data view and the control buttons for the data view
+    // Hides the historical data view and control buttons.
     function hideDataDisplay() {
       document.getElementById('table-container').style.display = "none";
       document.getElementById('graph-container').style.display = "none";
       document.getElementById('data-controls').style.display = "none";
+      // Also mark the historical view as hidden.
+      window.historicalDataVisible = false;
     }
 
-    // Adds event listeners
+    // Add event listeners once the document is loaded.
     document.addEventListener("DOMContentLoaded", function() {
       const toggleBtn = document.getElementById("show-graph");
       const tableContainer = document.getElementById('table-container');
       const graphContainer = document.getElementById('graph-container');
 
-      // Switches between table and graph view
+      // Toggle between table and graph views.
       toggleBtn.addEventListener("click", function() {
         if (window.currentView === "table") {
           window.currentView = "graph";
           tableContainer.style.display = "none";
           graphContainer.style.display = "block";
           toggleBtn.innerText = "Pokaż tabelę";
-          // Updates the graph immediately when switching to graph mode
           if (window.lastFetchedHistoryData) {
             updateGraph(window.lastFetchedHistoryData);
           }
@@ -196,24 +200,32 @@
         }
       });
 
-      // Adds event listener for hideDataDisplay()
+      // Event listener for the "hide data" button.
       document.getElementById("hide-data").addEventListener("click", function() {
         hideDataDisplay();
       });
 
-      // Automatically refreshes historical data every minute
+      // Automatically refresh historical data every minute, but only update the UI if visible.
       setInterval(function() {
-        if (window.currentHistoryHours !== null) {
+        // You can check the flag to avoid an unnecessary UI update.
+        if (window.historicalDataVisible) {
           fetchHistory(window.currentHistoryHours);
+        } else {
+          // Optionally, you might still update the global data without changing the UI.
+          fetch(`/history?hours=${window.currentHistoryHours}`)
+            .then(response => response.json())
+            .then(data => {
+              window.lastFetchedHistoryData = data;
+            })
+            .catch(error => console.error("Błąd pobierania historii:", error));
         }
       }, 60000);
     });
 
-    // Refreshes the sensor data view every second
+    // Refresh the sensor data view every second.
     setInterval(updateData, 1000);
     window.onload = updateData;
   </script>
-
 </head>
 <body>
   <!-- Displays the current sensor data -->
@@ -223,16 +235,17 @@
     <div class="data-display"><span id="hum">--</span></div>
   </div>
 
-  <!-- Timespan selection buttons for data view -->
+  <!-- Timespan selection buttons for historical data.
+       Note: now they call showHistory() so that the historical view is flagged as visible. -->
   <div class="link-container">
-    <a href="#" class="link-box" onclick="fetchHistory(1); event.preventDefault();">Ostania godzina</a>
-    <a href="#" class="link-box" onclick="fetchHistory(6); event.preventDefault();">Ostatnie 6 godzin</a>
-    <a href="#" class="link-box" onclick="fetchHistory(12); event.preventDefault();">Ostatnie 12 godzin</a>
-    <a href="#" class="link-box" onclick="fetchHistory(24); event.preventDefault();">Ostatnie 24 godziny</a>
-    <a href="#" class="link-box" onclick="fetchHistory(168); event.preventDefault();">Ostatni tydzień</a>
+    <a href="#" class="link-box" onclick="showHistory(1); event.preventDefault();">Ostania godzina</a>
+    <a href="#" class="link-box" onclick="showHistory(6); event.preventDefault();">Ostatnie 6 godzin</a>
+    <a href="#" class="link-box" onclick="showHistory(12); event.preventDefault();">Ostatnie 12 godzin</a>
+    <a href="#" class="link-box" onclick="showHistory(24); event.preventDefault();">Ostatnie 24 godziny</a>
+    <a href="#" class="link-box" onclick="showHistory(168); event.preventDefault();">Ostatni tydzień</a>
   </div>
 
-  <!-- Data view control buttons (only visible when historical data is being displayed) -->
+  <!-- Data view control buttons (visible only when historical data is displayed) -->
   <div id="data-controls" class="button-container" style="display: none;">
     <button class="link-box" id="show-graph">Pokaż wykres</button>
     <button class="link-box" id="hide-data">Ukryj dane</button>

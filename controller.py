@@ -153,7 +153,8 @@ class Controller:
                         print("Warning: Sensor read failed, using last known values.")
 
                 except Exception as e:
-                    print(f"Sensor error: {e}")
+                    # On failure, closes the service, forcing systemd to restart it
+                    sys.exit(1)
 
                 # Uses last known good values if the sensor read failed, otherwise NaN
                 temp = temp if temp is not None else (last_temp if last_temp is not None else float('nan'))
