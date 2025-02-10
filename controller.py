@@ -2,10 +2,10 @@ import adafruit_dht
 import board
 import sys
 import struct
-from time import sleep
+from time import sleep, time
 from gpiozero import Button, LED
 from threading import Event, Lock, Thread
-from os import replace
+from os import replace, _exit
 
 from constants import *
 from data_logger_class import DataLogger
@@ -19,7 +19,8 @@ def main():
         Thread(target=controller.sensor_thread, daemon=True),
         Thread(target=controller.led_controller_thread, daemon=True),
         Thread(target=controller.logging_thread, daemon=True),
-        Thread(target=controller.monitor_shutdown, daemon=True)
+        Thread(target=controller.monitor_shutdown_thread, daemon=True),
+        Thread(target=controller.watchdog_thread, daemon=True),
     ]
 
     for thread in threads:
@@ -31,6 +32,7 @@ def main():
 
 class Controller:
     """Controls the circuit and all its elements."""
+
     def __init__(self):
         # Initializes the DHT22 sensor
         self.dht22 = adafruit_dht.DHT22(board.D23)
@@ -68,14 +70,17 @@ class Controller:
         self.on_off_button.when_held = self.shutdown
         self.cycle_button.when_pressed = self.cycle_button_press_event
 
-        # 0 for temperature, 1 for humidity, 2 for no leds
-        self.display_mode = 2
-
-        # When True, sensors readings will be taken and data will be logged
-        self.active = True
-
         # When True, the program will end
         self.shutdown_event = Event()
+
+        # 0 for temperature, 1 for humidity, 2 for no LEDs
+        self.display_mode = DEFAULT_DISPLAY_MODE
+
+        # When True, sensor readings will be taken and data will be logged
+        self.active = DEFAULT_START_MODE
+
+        # Holds 15 most recent readings in a list of tuples (temp, hum)
+        self.last_readings = []
 
         self.update_on_off_leds()
 
@@ -118,8 +123,19 @@ class Controller:
 
     def shutdown(self):
         self.shutdown_event.set()
+    
+    def save_to_ram_file(self, temp, hum):
+        """Saves the readings as a struct (2 floats) into a RAM file in /dev/shm"""
+        try:
+            # Saves into a temp file first, then replaces the main file with the temp file, to avoid race conditions
+            with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
+                ram_file.write(struct.pack("ff", temp, hum))
+            replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
+        except Exception as e:
+            print(f"File write error: {e}")
 
     def cleanup(self):
+        """On shutdown, clears inputs and outputs and turns off LEDs"""
         self.shift_reg.clear_input()
         self.shift_reg.update_output()
 
@@ -130,7 +146,8 @@ class Controller:
 
     def sensor_thread(self):
         """
-        Reads data from the sensor, saves it to self.data, and writes it to a RAM file.
+        Reads data from the sensor, saves it to self.data, writes it to a RAM file,
+        and stores the last 15 readings for watchdog monitoring.
         If the sensor read fails, it reuses the last successful values or writes NaN.
         """
         last_temp = None
@@ -149,24 +166,28 @@ class Controller:
                         with self.lock:
                             self.data["temperature"] = temp
                             self.data["humidity"] = hum
-                    else:
-                        print("Warning: Sensor read failed, using last known values.")
+                            # Records the readings to make sure the sensor isn't stuck
+                            self.last_readings.append((temp, hum))
+                            if len(self.last_readings) > WATCHDOG_THRESHOLD:
+                                self.last_readings.pop(0)
 
                 except Exception as e:
-                    # On failure, closes the service, forcing systemd to restart it
-                    sys.exit(1)
+                    print(f"Sensor error: {str(e)}")
 
-                # Uses last known good values if the sensor read failed, otherwise NaN
-                temp = temp if temp is not None else (last_temp if last_temp is not None else float('nan'))
-                hum = hum if hum is not None else (last_hum if last_hum is not None else float('nan'))
+                # Use last known good values if the sensor read failed, otherwise NaN
+                temp = (
+                    temp
+                    if temp is not None
+                    else (last_temp if last_temp is not None else float("nan"))
+                )
+                hum = (
+                    hum
+                    if hum is not None
+                    else (last_hum if last_hum is not None else float("nan"))
+                )
 
                 # Save data to a RAM file for the HTTP server
-                try:
-                    with open(RAM_TEMP_FILE_PATH, "wb") as ram_file:
-                        ram_file.write(struct.pack("ff", temp, hum))
-                    replace(RAM_TEMP_FILE_PATH, RAM_FILE_PATH)
-                except Exception as e:
-                    print(f"File write error: {e}")
+                self.save_to_ram_file(temp, hum)
 
             sleep(UPDATE_FREQUENCY)
 
@@ -207,7 +228,29 @@ class Controller:
 
             sleep(UPDATE_FREQUENCY)
 
-    def monitor_shutdown(self):
+    def watchdog_thread(self):
+        """
+        Monitors the last sensor readings. If all readings are identical, closes the process, forcing a restart.
+        The number of readings checked is defined in the constant WATCHDOG_THRESHOLD.
+        """
+        while not self.shutdown_event.is_set():
+            with self.lock:
+                if len(self.last_readings) >= WATCHDOG_THRESHOLD:
+                    first_reading = self.last_readings[0]
+                    # Checks if all readings are the same: compares both temp ([0]) and hum ([1])
+                    all_readings_are_identical = all(
+                        reading[0] == first_reading[0]
+                        and reading[1] == first_reading[1]
+                        for reading in self.last_readings
+                    )
+                    if all_readings_are_identical:
+                        print(
+                            f"Watchdog: Last {WATCHDOG_THRESHOLD} readings are identical, forcing a restart."
+                        )
+                        _exit(1)
+            sleep(5)
+    
+    def monitor_shutdown_thread(self):
         """Cleans up and closes the program when shutdown_event is set"""
         self.shutdown_event.wait()
         self.cleanup()
